@@ -1,30 +1,29 @@
-server {
-    listen 80;
-    server_name sop-review-2026.xyz www.sop-review-2026.xyz;
-    return 301 https://$server_name$request_uri;
-}
+#!/usr/bin/env python3
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from datetime import datetime
 
-server {
-    listen 443 ssl http2;
-    server_name sop-review-2026.xyz www.sop-review-2026.xyz;
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/collect':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"status":"ready"}')
+        else:
+            self.send_response(404)
+            self.end_headers()
 
-    ssl_certificate /etc/letsencrypt/live/sop-review-2026.xyz/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/sop-review-2026.xyz/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    def do_POST(self):
+        length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(length) if length > 0 else b''
+        ts = datetime.now().isoformat()
+        log = f"\n=== DATA [{ts}] ===\nHeaders: {dict(self.headers)}\nBody: {body.decode()}\n"
+        print(log)
+        with open('/tmp/collected_payloads.log', 'a') as f:
+            f.write(log)
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{"status":"received"}')
 
-    root /var/www/agent-trap;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ =404;
-    }
-
-    location /collect {
-        proxy_pass http://127.0.0.1:9999;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+HTTPServer(('127.0.0.1', 9999), Handler).serve_forever()
