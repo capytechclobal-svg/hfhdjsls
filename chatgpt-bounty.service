@@ -1,0 +1,14 @@
+[Unit]
+Description=ChatGPT Bounty Collector
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/chatgpt-bounty
+ExecStart=/opt/chatgpt-bounty/venv/bin/python /opt/chatgpt-bounty/server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
